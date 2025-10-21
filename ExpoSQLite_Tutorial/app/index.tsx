@@ -28,8 +28,11 @@ export default function App() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [items, setItems] = useState<Item[]>([]);
+
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
-  const [sortMethod, setSortMethod] = useState<"nameAZ" | "nameZA" | "qtyLH" | "qtyHL">("nameAZ");
+  const [sortMethod, setSortMethod] = useState<
+    "nameAZ" | "nameZA" | "qtyLH" | "qtyHL" | "qtyLH_nameAZ" | "qtyHL_nameZA"
+  >("nameAZ");
 
   useEffect(() => {
     loadItems();
@@ -37,24 +40,7 @@ export default function App() {
 
   const loadItems = async () => {
     try {
-      let value = await fetchItems(db);
-
-      // Apply sorting based on selected method
-      switch (sortMethod) {
-        case "nameAZ":
-          value.sort((a, b) => a.name.localeCompare(b.name));
-          break;
-        case "nameZA":
-          value.sort((a, b) => b.name.localeCompare(a.name));
-          break;
-        case "qtyLH":
-          value.sort((a, b) => a.quantity - b.quantity);
-          break;
-        case "qtyHL":
-          value.sort((a, b) => b.quantity - a.quantity);
-          break;
-      }
-
+      const value = await fetchItems(db, sortMethod);
       setItems(value);
     } catch (err) {
       console.log("Failed to fetch items", err);
@@ -70,10 +56,10 @@ export default function App() {
       } else {
         await updateItem(db, editingId, name.trim(), quantity);
       }
-      await loadItems();
       setName("");
       setQuantity(null);
       setEditingId(null);
+      await loadItems();
     } catch (err) {
       console.log("Failed to save/update item", err);
     }
@@ -94,12 +80,12 @@ export default function App() {
         onPress: async () => {
           try {
             await deleteItem(db, id);
-            await loadItems();
             if (editingId === id) {
               setEditingId(null);
               setName("");
               setQuantity(null);
             }
+            await loadItems();
           } catch (err) {
             console.log("Failed to delete item", err);
           }
@@ -111,7 +97,7 @@ export default function App() {
   return (
     <PaperProvider>
       <View style={styles.container}>
-        <Text style={styles.title}>SQLite Example with Sort Dropdown</Text>
+        <Text style={styles.title}>SQLite Example with SQL Sort</Text>
 
         <TextInput
           style={styles.input}
@@ -166,8 +152,10 @@ export default function App() {
                 {{
                   nameAZ: "Name A→Z",
                   nameZA: "Name Z→A",
-                  qtyLH: "Qty Low→High",
-                  qtyHL: "Qty High→Low",
+                  qtyLH: "Quantity Low→High",
+                  qtyHL: "Quantity High→Low",
+                  qtyLH_nameAZ: "Qty Low→High + Name A→Z",
+                  qtyHL_nameZA: "Qty High→Low + Name Z→A",
                 }[sortMethod]}
               </Text>
             </TouchableOpacity>
@@ -201,6 +189,20 @@ export default function App() {
               setSortMenuVisible(false);
             }}
           />
+          <Menu.Item
+            title="Qty Low→High + Name A→Z"
+            onPress={() => {
+              setSortMethod("qtyLH_nameAZ");
+              setSortMenuVisible(false);
+            }}
+          />
+          <Menu.Item
+            title="Qty High→Low + Name Z→A"
+            onPress={() => {
+              setSortMethod("qtyHL_nameZA");
+              setSortMenuVisible(false);
+            }}
+          />
         </Menu>
 
         <FlatList
@@ -219,9 +221,7 @@ export default function App() {
             />
           )}
           ListEmptyComponent={
-            <Text
-              style={{ textAlign: "center", marginTop: 24, color: "#888" }}
-            >
+            <Text style={{ textAlign: "center", marginTop: 24, color: "#888" }}>
               No items yet. Add your first one above.
             </Text>
           }
